@@ -29,3 +29,32 @@ def test_mapping_marks_low_confidence_items_unresolved() -> None:
     assert decision.selected_candidate is None
     assert decision.confidence < 0.70
     assert decision.unresolved_reason
+
+
+def test_mapping_prefers_requested_location_when_names_tie_at_perfect_similarity() -> None:
+    item = BomItem(
+        name="Electricity grid mix",
+        material="Electricity grid mix",
+        quantity=1,
+        unit="kWh",
+        location="IT",
+    )
+    candidates = [
+        ProcessCandidate(
+            id="cy",
+            name="Electricity grid mix Electricity grid mix",
+            location="CY",
+            score=0.0,
+        ),
+        ProcessCandidate(
+            id="it",
+            name="Electricity grid mix Electricity grid mix",
+            location="IT",
+            score=0.0,
+        ),
+    ]
+
+    decision = map_bom_item_to_processes(item, candidates)
+
+    assert decision.selected_candidate is not None
+    assert decision.selected_candidate.id == "it"

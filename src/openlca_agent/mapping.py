@@ -19,7 +19,13 @@ def map_bom_item_to_processes(
     threshold: float = CONFIDENCE_THRESHOLD,
 ) -> MappingDecision:
     scored = [_score_candidate(item, candidate) for candidate in candidates]
-    scored.sort(key=lambda candidate: candidate.score, reverse=True)
+    scored.sort(
+        key=lambda candidate: (
+            candidate.score,
+            _location_rank(item.location, candidate.location),
+        ),
+        reverse=True,
+    )
     best = scored[0] if scored else None
     if best is None or best.score < threshold:
         return MappingDecision(
@@ -75,3 +81,11 @@ def _geography_bonus(item_location: str | None, candidate_location: str | None) 
     if item_location and item_location.lower() == candidate_location.lower():
         return GEOGRAPHY_PRIORITY.get(candidate_location, 0.06)
     return GEOGRAPHY_PRIORITY.get(candidate_location, 0.0) / 2
+
+
+def _location_rank(item_location: str | None, candidate_location: str | None) -> float:
+    if not candidate_location:
+        return 0.0
+    if item_location and item_location.lower() == candidate_location.lower():
+        return 1.0
+    return GEOGRAPHY_PRIORITY.get(candidate_location, 0.0)

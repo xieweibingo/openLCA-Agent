@@ -36,3 +36,10 @@ Run the demo bottle calculation and export `results.xlsx` plus `report.md`:
 ```powershell
 uv run --python 3.12 python examples/run_elcd_bottles.py
 ```
+
+Run an end-to-end BOM workflow that creates a new foreground product system, calculates it,
+and exports `results.xlsx` plus `report.md`:
+
+```powershell
+uv run --python 3.12 python examples/run_bom_auto_model.py
+```

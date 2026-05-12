@@ -1,0 +1,4 @@
+name,material,quantity,unit,supplier,location,notes
+Outer box,kraft paper,0.12,kg,,CN,Packaging carton
+Bottle body,glass bottle,1,piece,,GLO,Primary package
+Film wrap,packaging film low density polyethylene,0.02,kg,,GLO,Secondary wrap

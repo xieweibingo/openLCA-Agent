@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from openlca_agent.models import Descriptor, ImpactResult, ProductModel
+from openlca_agent.models import Descriptor, Hotspot, ImpactResult, ProductModel
 
 DEFAULT_DATA_DIR = Path(r"C:\Users\11587\openLCA-data-1.4")
 
@@ -98,7 +98,9 @@ class OlcaGateway:
             )
         )
         result.wait_until_ready()
+        impact_refs = result.get_impact_categories()
         total_impacts = [_impact_to_model(value) for value in result.get_total_impacts()]
+        hotspots = _extract_hotspots(result, impact_refs, total_impacts)
         try:
             result.dispose()
         except Exception:
@@ -108,6 +110,7 @@ class OlcaGateway:
             "product_system": _ref_to_dict(product_system_ref),
             "impact_method": _ref_to_dict(impact_method_ref),
             "total_impacts": total_impacts,
+            "hotspots": hotspots,
         }
 
     def hotspot_analysis(
@@ -294,6 +297,48 @@ def _impact_to_model(value) -> ImpactResult:
         impact_category=str(category_name),
         value=float(amount or 0.0),
         unit=getattr(category, "ref_unit", None),
+    )
+
+
+def _extract_hotspots(
+    result,
+    impact_refs: list[Any],
+    total_impacts: list[ImpactResult],
+) -> list[Hotspot]:
+    if not impact_refs:
+        return []
+    impact_ref = impact_refs[0]
+    total = total_impacts[0].value if total_impacts else 0.0
+    unit = total_impacts[0].unit if total_impacts else None
+    try:
+        contributions = result.get_impact_contributions_of(impact_ref)
+    except Exception:
+        return []
+    hotspots = [
+        tech_flow_value_to_hotspot(contribution, total=total, unit=unit)
+        for contribution in contributions
+    ]
+    hotspots.sort(key=lambda item: abs(item.value), reverse=True)
+    return [hotspot for hotspot in hotspots if hotspot.value != 0][:10]
+
+
+def tech_flow_value_to_hotspot(
+    contribution: Any,
+    total: float,
+    unit: str | None = "kg CO2 eq",
+) -> Hotspot:
+    amount = float(getattr(contribution, "amount", None) or 0.0)
+    tech_flow = getattr(contribution, "tech_flow", None)
+    provider = getattr(tech_flow, "provider", None)
+    flow = getattr(tech_flow, "flow", None)
+    name = getattr(provider, "name", None) or getattr(flow, "name", None) or "unknown"
+    share = amount / total if total else None
+    return Hotspot(
+        name=str(name),
+        value=amount,
+        unit=unit,
+        contribution=share,
+        dimension="process",
     )
 
 

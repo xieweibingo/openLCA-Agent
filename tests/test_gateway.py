@@ -1,6 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
 
-from openlca_agent.gateway import OlcaGateway
+from openlca_agent.gateway import OlcaGateway, tech_flow_value_to_hotspot
 
 
 def test_list_databases_reads_openlca_manifest(tmp_path: Path) -> None:
@@ -12,3 +13,20 @@ def test_list_databases_reads_openlca_manifest(tmp_path: Path) -> None:
     databases = OlcaGateway(data_dir=tmp_path).list_databases()
 
     assert [item["name"] for item in databases] == ["tiangong_v020", "EF3.1"]
+
+
+def test_tech_flow_value_to_hotspot_uses_provider_name_and_total_share() -> None:
+    contribution = SimpleNamespace(
+        amount=0.5,
+        tech_flow=SimpleNamespace(
+            provider=SimpleNamespace(name="Electricity grid mix"),
+            flow=SimpleNamespace(name="Electricity"),
+        ),
+    )
+
+    hotspot = tech_flow_value_to_hotspot(contribution, total=1.0)
+
+    assert hotspot.name == "Electricity grid mix"
+    assert hotspot.value == 0.5
+    assert hotspot.unit == "kg CO2 eq"
+    assert hotspot.contribution == 0.5

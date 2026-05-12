@@ -30,3 +30,9 @@ the IPC Server started:
 $env:OPENLCA_INTEGRATION='1'
 uv run --python 3.12 --with pytest pytest -q -m integration
 ```
+
+Run the demo bottle calculation and export `results.xlsx` plus `report.md`:
+
+```powershell
+uv run --python 3.12 python examples/run_elcd_bottles.py
+```

@@ -1,7 +1,12 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from openlca_agent.gateway import OlcaGateway, tech_flow_value_to_hotspot
+from openlca_agent.gateway import (
+    GENERATED_CATEGORY,
+    OlcaGateway,
+    categorize_product_system,
+    tech_flow_value_to_hotspot,
+)
 
 
 def test_list_databases_reads_openlca_manifest(tmp_path: Path) -> None:
@@ -30,3 +35,26 @@ def test_tech_flow_value_to_hotspot_uses_provider_name_and_total_share() -> None
     assert hotspot.value == 0.5
     assert hotspot.unit == "kg CO2 eq"
     assert hotspot.contribution == 0.5
+
+
+def test_categorize_product_system_updates_created_system_ref() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.product_system = SimpleNamespace(id="ps1", name="AI_PRODUCT_demo", category=None)
+            self.put_calls = []
+
+        def get(self, model_type, uid: str):
+            assert uid == "ps1"
+            return self.product_system
+
+        def put(self, model) -> None:
+            self.put_calls.append(model)
+
+    ref = SimpleNamespace(id="ps1", name="AI_PRODUCT_demo", category=None)
+    client = FakeClient()
+
+    categorized = categorize_product_system(client, ref)
+
+    assert client.product_system.category == GENERATED_CATEGORY
+    assert categorized["category"] == GENERATED_CATEGORY
+    assert client.put_calls == [client.product_system]

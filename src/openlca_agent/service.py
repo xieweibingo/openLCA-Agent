@@ -6,7 +6,11 @@ from typing import Any
 
 from openlca_agent.bom import ingest_bom as _ingest_bom
 from openlca_agent.gateway import OlcaGateway
-from openlca_agent.mapping import CONFIDENCE_THRESHOLD, map_bom_item_to_processes
+from openlca_agent.mapping import (
+    CONFIDENCE_THRESHOLD,
+    compute_dqi_for_candidate,
+    map_bom_item_to_processes,
+)
 from openlca_agent.models import (
     BomItem,
     CalculationRun,
@@ -488,6 +492,7 @@ class OpenLcaAgentService:
                     if i < len(model.mapping_decisions)
                     else None
                 )
+                dqi = decision.dqi if decision else None
                 items_with_status.append({
                     "index": i,
                     "item_name": item.name,
@@ -508,6 +513,8 @@ class OpenLcaAgentService:
                         decision is not None
                         and decision.selected_candidate is not None
                     ),
+                    "dqi_overall": dqi.overall if dqi else None,
+                    "dqi_band": dqi.confidence_band if dqi else None,
                 })
 
             return ok({
@@ -558,12 +565,14 @@ class OpenLcaAgentService:
                 score=confidence,
                 reason=reason,
             )
+            candidate.dqi = compute_dqi_for_candidate(item, candidate)
             mapping = MappingDecision(
                 item=item,
                 candidates=(existing_decision.candidates if existing_decision else []),
                 selected_candidate=candidate,
                 confidence=confidence,
                 reason=reason,
+                dqi=candidate.dqi,
             )
 
             if item_index < len(model.mapping_decisions):
@@ -657,6 +666,7 @@ class OpenLcaAgentService:
                     else None
                 )
                 selected = decision.selected_candidate if decision else None
+                dqi = decision.dqi if decision else None
                 items.append({
                     "index": i,
                     "item_name": item.name,
@@ -668,6 +678,9 @@ class OpenLcaAgentService:
                         selected is None
                         or (decision and decision.confidence < 0.85)
                     ),
+                    "dqi_overall": dqi.overall if dqi else None,
+                    "dqi_band": dqi.confidence_band if dqi else None,
+                    "dqi_flags": dqi.flags if dqi else [],
                 })
 
             unresolved = [
@@ -677,6 +690,9 @@ class OpenLcaAgentService:
                 or model.mapping_decisions[i].selected_candidate is None
             ]
 
+            dqi_high = sum(1 for m in items if m.get("dqi_band") == "high")
+            dqi_medium = sum(1 for m in items if m.get("dqi_band") == "medium")
+            dqi_low = sum(1 for m in items if m.get("dqi_band") == "low")
             return ok({
                 "mappings": items,
                 "unresolved": unresolved,
@@ -685,6 +701,11 @@ class OpenLcaAgentService:
                 "low_confidence": sum(
                     1 for m in items if m["needs_review"]
                 ),
+                "dqi_summary": {
+                    "high": dqi_high,
+                    "medium": dqi_medium,
+                    "low": dqi_low,
+                },
             })
         except Exception as exc:
             return normalize_exception(exc)

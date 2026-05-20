@@ -19,6 +19,8 @@ class PcfProcessContribution(AgentModel):
     value: float
     unit: str = "kg CO2 eq"
     contribution: float | None = None
+    dqi_overall: float | None = None
+    dqi_confidence_band: str | None = None
 
 
 class PcfDeclaration(AgentModel):
@@ -46,18 +48,39 @@ def _climate_change_value(impacts: list[ImpactResult]) -> float | None:
     return None
 
 
+def _build_dqi_lookup(
+    product_model: ProductModel | None,
+) -> dict[str, tuple[float, str]]:
+    """Map process name → (dqi_overall, confidence_band) from mapping decisions."""
+    lookup: dict[str, tuple[float, str]] = {}
+    if not product_model:
+        return lookup
+    for decision in product_model.mapping_decisions:
+        if decision.selected_candidate and decision.dqi:
+            name = decision.selected_candidate.name
+            lookup[name] = (decision.dqi.overall, decision.dqi.confidence_band)
+    return lookup
+
+
 def _build_processes(
     hotspots: list[Hotspot],
+    dqi_lookup: dict[str, tuple[float, str]] | None = None,
 ) -> list[PcfProcessContribution]:
-    return [
-        PcfProcessContribution(
-            process_name=h.name,
-            value=h.value,
-            unit=h.unit or "kg CO2 eq",
-            contribution=h.contribution,
+    dqi_lookup = dqi_lookup or {}
+    results: list[PcfProcessContribution] = []
+    for h in hotspots:
+        dqi = dqi_lookup.get(h.name)
+        results.append(
+            PcfProcessContribution(
+                process_name=h.name,
+                value=h.value,
+                unit=h.unit or "kg CO2 eq",
+                contribution=h.contribution,
+                dqi_overall=dqi[0] if dqi else None,
+                dqi_confidence_band=dqi[1] if dqi else None,
+            )
         )
-        for h in hotspots
-    ]
+    return results
 
 
 def _assumptions_list(
@@ -104,7 +127,10 @@ def build_pcf(
         total_pcf=total_pcf,
         fossil_ghg_emissions=total_pcf,
         impact_method=impact_method,
-        processes=_build_processes(run.hotspots),
+        processes=_build_processes(
+            run.hotspots,
+            _build_dqi_lookup(product_model),
+        ),
         assumptions=_assumptions_list(run, product_model),
         missing_data=_missing_data_list(run, product_model),
     )
@@ -142,13 +168,15 @@ def export_pcf_xlsx(pcf: PcfDeclaration, path: Path) -> str:
         _append_rows(
             proc,
             [
-                ["PROCESS_NAME", "VALUE", "UNIT", "CONTRIBUTION"],
+                ["PROCESS_NAME", "VALUE", "UNIT", "CONTRIBUTION", "DQI_OVERALL", "DQI_BAND"],
                 *[
                     [
                         pp.process_name,
                         pp.value,
                         pp.unit,
                         pp.contribution if pp.contribution is not None else "",
+                        pp.dqi_overall if pp.dqi_overall is not None else "",
+                        pp.dqi_confidence_band or "",
                     ]
                     for pp in pcf.processes
                 ],

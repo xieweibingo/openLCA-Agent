@@ -173,6 +173,9 @@ def _render_markdown(
         "## Process Mapping",
         *_mapping_table(product_model),
         "",
+        "## Data Quality Indicators (DQI)",
+        *_dqi_table(product_model),
+        "",
         "## Total Impact Results",
         *_impact_table(run),
         "",
@@ -210,6 +213,29 @@ def _mapping_table(product_model: ProductModel | None) -> list[str]:
             f"| {decision.item.name} | {decision.item.material} | {selected} | "
             f"{decision.confidence:.2f} | {decision.reason or decision.unresolved_reason or ''} |"
         )
+    return lines
+
+
+def _dqi_table(product_model: ProductModel | None) -> list[str]:
+    if not product_model or not product_model.mapping_decisions:
+        return ["No DQI data recorded."]
+    lines = [
+        "| BOM item | Selected process | DQI (overall) | Band | Flags |",
+        "| --- | --- | ---: | --- | --- |",
+    ]
+    for decision in product_model.mapping_decisions:
+        selected = decision.selected_candidate.name if decision.selected_candidate else "Unresolved"
+        dqi = decision.dqi
+        if dqi:
+            flags = "; ".join(dqi.flags[:2])
+            lines.append(
+                f"| {decision.item.name} | {selected} | "
+                f"{dqi.overall:.0f} | {dqi.confidence_band} | {flags} |"
+            )
+        else:
+            lines.append(
+                f"| {decision.item.name} | {selected} | — | — | No DQI |"
+            )
     return lines
 
 

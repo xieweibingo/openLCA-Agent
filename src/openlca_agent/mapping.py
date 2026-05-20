@@ -7,7 +7,7 @@ try:
 except Exception:  # pragma: no cover - fallback for stripped deployments.
     fuzz = None
 
-from openlca_agent.models import BomItem, MappingDecision, ProcessCandidate
+from openlca_agent.models import BomItem, DqiScore, MappingDecision, ProcessCandidate
 
 CONFIDENCE_THRESHOLD = 0.70
 GEOGRAPHY_PRIORITY = {"CN": 0.08, "GLO": 0.05, "RoW": 0.03, "RER": 0.02}
@@ -142,7 +142,14 @@ def map_bom_item_to_processes(
         selected_candidate=best,
         confidence=best.score,
         reason=reason,
+        dqi=best.dqi,
     )
+
+
+def compute_dqi_for_candidate(item: BomItem, candidate: ProcessCandidate) -> DqiScore:
+    from openlca_agent.dqi import compute_dqi
+
+    return compute_dqi(item, candidate)
 
 
 def _score_candidate(item: BomItem, candidate: ProcessCandidate) -> ProcessCandidate:
@@ -158,10 +165,12 @@ def _score_candidate(item: BomItem, candidate: ProcessCandidate) -> ProcessCandi
     if category_bonus:
         reason_parts.append("category/material hint")
 
+    dqi = compute_dqi_for_candidate(item, candidate)
     return candidate.model_copy(
         update={
             "score": round(score, 4),
             "reason": "; ".join(reason_parts),
+            "dqi": dqi,
         }
     )
 

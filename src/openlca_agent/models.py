@@ -21,6 +21,16 @@ class AgentModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+class DqiScore(AgentModel):
+    overall: float = 0.0
+    geographical: float = 0.0
+    technological: float = 0.0
+    temporal: float = 0.0
+    completeness: float = 0.0
+    confidence_band: str = "low"
+    flags: list[str] = Field(default_factory=list)
+
+
 class BomItem(AgentModel):
     name: str
     material: str
@@ -58,6 +68,7 @@ class ProcessCandidate(Descriptor):
     score: float = 0.0
     reason: str | None = None
     category_path: str | None = None
+    dqi: DqiScore | None = None
 
 
 class MappingDecision(AgentModel):
@@ -67,6 +78,7 @@ class MappingDecision(AgentModel):
     confidence: float = 0.0
     reason: str = ""
     unresolved_reason: str | None = None
+    dqi: DqiScore | None = None
 
 
 class ProductModel(AgentModel):

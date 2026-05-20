@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import enum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class RunStage(enum.IntEnum):
+    PENDING = 0
+    BOM_INGESTED = 1
+    MAPPED = 2
+    PRODUCT_SYSTEM_CREATED = 3
+    CALCULATED = 4
+    RESULTS_EXPORTED = 5
+    REPORTED = 6
 
 
 class AgentModel(BaseModel):
@@ -46,6 +57,7 @@ class Descriptor(AgentModel):
 class ProcessCandidate(Descriptor):
     score: float = 0.0
     reason: str | None = None
+    category_path: str | None = None
 
 
 class MappingDecision(AgentModel):
@@ -92,6 +104,8 @@ class CalculationRun(AgentModel):
     missing_data: list[str] = Field(default_factory=list)
     product_model: ProductModel | None = None
     run_handle: str | None = None
+    stage: RunStage = RunStage.PENDING
+    error_context: str | None = None
 
     def output_dir(self, output_root: Path) -> Path:
         return output_root / self.run_id

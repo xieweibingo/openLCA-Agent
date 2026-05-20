@@ -71,8 +71,11 @@ def test_assess_product_from_inline_bom_generates_report_files(tmp_path: Path) -
     )
 
     assert response["ok"] is True
-    assert Path(response["data"]["report"]["files"]["markdown"]).exists()
-    assert Path(response["data"]["report"]["files"]["excel"]).exists()
+    run = response["data"]["run"]
+    assert Path(run["files"]["markdown"]).exists()
+    assert Path(run["files"]["xlsx"]).exists()
+    assert Path(run["files"]["pcf_json"]).exists()
+    assert Path(run["files"]["pcf_xlsx"]).exists()
 
 
 def test_create_product_system_blocks_unresolved_items_by_default(tmp_path: Path) -> None:

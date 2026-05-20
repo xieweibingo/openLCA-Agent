@@ -1,5 +1,11 @@
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+# olca_schema is not installed in CI/test — provide a minimal mock.
+if "olca_schema" not in sys.modules:
+    sys.modules["olca_schema"] = MagicMock()
 
 from openlca_agent.gateway import (
     GENERATED_CATEGORY,

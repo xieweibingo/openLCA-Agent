@@ -22,6 +22,7 @@ def main() -> int:
 
     run_id = calculation["data"]["run_id"]
     service.export_result(run_id, formats=["xlsx", "json", "csv"])
+    service.export_pcf(run_id)  # PACT Pathfinder 2.0 JSON + XLSX
     report = service.generate_compliance_report(run_id)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0

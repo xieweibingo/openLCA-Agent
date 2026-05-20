@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from openlca_agent.models import Descriptor, Hotspot, ImpactResult, ProductModel
+from openlca_agent.models import BomItem, Descriptor, Hotspot, ImpactResult, ProcessCandidate, ProductModel
 
 DEFAULT_DATA_DIR = Path(r"C:\Users\11587\openLCA-data-1.4")
 GENERATED_CATEGORY = "AI generated/BOM auto-model"
@@ -55,6 +55,46 @@ class OlcaGateway:
         from olca_schema import Process
 
         return self._search_descriptors(Process, query=query, limit=limit, model_type="PROCESS")
+
+    def search_processes_enhanced(
+        self, item: BomItem, limit: int = 30
+    ) -> list[ProcessCandidate]:
+        """Multi-strategy search for a BOM item.
+
+        Uses ``search_strategies()`` to generate several search queries from
+        the item's material, name, and supplier fields, then merges and
+        deduplicates the results.  Returns ``ProcessCandidate`` objects with
+        ``category_path`` set for Claude's semantic analysis.
+        """
+        from openlca_agent.mapping import search_strategies
+
+        strategies = search_strategies(item)
+        seen_ids: set[str] = set()
+        results: list[ProcessCandidate] = []
+
+        for query in strategies:
+            descriptors = self.search_processes(query=query, limit=limit)
+            for d in descriptors:
+                if not d.id or d.id in seen_ids:
+                    continue
+                seen_ids.add(d.id)
+                results.append(
+                    ProcessCandidate(
+                        id=d.id,
+                        name=d.name,
+                        category=d.category,
+                        category_path=d.category,
+                        location=d.location,
+                        model_type="PROCESS",
+                        score=0.0,
+                    )
+                )
+                if len(results) >= limit:
+                    break
+            if len(results) >= limit:
+                break
+
+        return results[:limit]
 
     def search_product_systems(self, query: str | None = None, limit: int = 10) -> list[Descriptor]:
         from olca_schema import ProductSystem
